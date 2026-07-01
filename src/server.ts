@@ -26,7 +26,10 @@ export interface LogiAuthServerOptions {
   clientSecret?: string;
   /** logi IdP base URL. Default: https://api.1pass.dev */
   issuer?: string;
-  /** Expected `iss` claim (the string "logi", not the URL). Default: "logi". */
+  /**
+   * Expected `iss` claim (the issuer URL). Defaults to the normalized `issuer`
+   * (i.e. "https://api.1pass.dev" in prod).
+   */
   tokenIssuer?: string;
   /** Default scopes. Default: ["openid", "profile:basic", "email"]. */
   scopes?: string[];
@@ -105,7 +108,7 @@ export class LogiAuthServer {
     this.redirectUri = opts.redirectUri;
     this.clientSecret = opts.clientSecret;
     this.issuer = (opts.issuer ?? "https://api.1pass.dev").replace(/\/+$/, "");
-    this.tokenIssuer = opts.tokenIssuer ?? "logi";
+    this.tokenIssuer = opts.tokenIssuer ?? this.issuer;
     this.defaultScopes = opts.scopes ?? ["openid", "profile:basic", "email"];
     this.fetchImpl = opts.fetch ?? globalThis.fetch;
     this.jwksCacheTtlMs = opts.jwksCacheTtlMs ?? 3_600_000;
