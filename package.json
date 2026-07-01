@@ -19,8 +19,8 @@
     "prepublishOnly": "npm run build && npm run test"
   },
   "keywords": ["logi", "1pass", "oauth", "oidc", "nextjs", "node", "server", "auth", "openid", "id-token"],
-  "author": "Seunghan Kim (https://github.com/seunghan91)",
-  "license": "MIT",
+  "author": "Dcode (https://github.com/dcode-co)",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/dcode-co/logi-auth-node.git"
