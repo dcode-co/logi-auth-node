@@ -69,6 +69,7 @@ export interface LogiServerSession {
 }
 
 export type LogiAuthServerErrorCode =
+  | "invalid_nonce"
   | "token_exchange_failed"
   | "missing_id_token"
   | "id_token_invalid"
@@ -138,6 +139,16 @@ export class LogiAuthServer {
    * pass. Throws LogiAuthServerError on any failure.
    */
   async exchangeCodeAndVerify(params: ExchangeParams): Promise<LogiServerSession> {
+    // The server flow always issued a nonce in authorizationUrl(), so a missing
+    // nonce here (e.g. an expired session) is a bug — never proceed with the
+    // nonce check silently disabled. (codex P1.)
+    if (!params.nonce) {
+      throw new LogiAuthServerError(
+        "invalid_nonce",
+        "nonce is required — the sign-in session may have expired"
+      );
+    }
+
     const body = new URLSearchParams({
       grant_type: "authorization_code",
       code: params.code,

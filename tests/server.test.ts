@@ -60,6 +60,21 @@ describe("LogiAuthServer.exchangeCodeAndVerify error handling", () => {
     ).rejects.toMatchObject({ code: "missing_id_token" });
   });
 
+  it("rejects a missing nonce before any network call (invalid_nonce)", async () => {
+    let called = false;
+    const server = new LogiAuthServer({
+      ...base,
+      fetch: (async () => {
+        called = true;
+        return new Response("{}", { status: 200 });
+      }) as typeof fetch,
+    });
+    await expect(
+      server.exchangeCodeAndVerify({ code: "c", nonce: "" })
+    ).rejects.toMatchObject({ code: "invalid_nonce" });
+    expect(called).toBe(false);
+  });
+
   it("surfaces failures as the typed LogiAuthServerError", async () => {
     const server = new LogiAuthServer({
       ...base,
