@@ -1,0 +1,43 @@
+{
+  "name": "@logi-auth/server",
+  "version": "1.0.0",
+  "description": "Server-side \"Sign in with logi\" for Node backends (Next.js, Express, Fastify) — confidential OAuth 2.0 code exchange + id_token (RS256) verification. Zero runtime dependencies.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build && npm run test"
+  },
+  "keywords": ["logi", "1pass", "oauth", "oidc", "nextjs", "node", "server", "auth", "openid", "id-token"],
+  "author": "Seunghan Kim (https://github.com/seunghan91)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dcode-co/logi-auth-node.git"
+  },
+  "homepage": "https://docs.1pass.dev",
+  "bugs": {
+    "url": "https://github.com/dcode-co/logi-auth-node/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  },
+  "sideEffects": false
+}
