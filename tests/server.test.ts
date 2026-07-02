@@ -1,4 +1,10 @@
 import { describe, it, expect } from "vitest";
+import {
+  createHash,
+  createSign,
+  createPublicKey,
+  generateKeyPairSync,
+} from "node:crypto";
 import { LogiAuthServer, LogiAuthServerError } from "../src/server.js";
 
 const base = {
@@ -10,6 +16,35 @@ const base = {
 
 function jsonResponse(status: number, body: string): Response {
   return new Response(body, { status, headers: { "content-type": "application/json" } });
+}
+
+// --- RS256 signing helpers for the at_hash wiring test ---
+const { privateKey: SIGN_KEY } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+const SIGN_PEM = SIGN_KEY.export({ type: "pkcs8", format: "pem" }) as string;
+const SIGN_JWK = createPublicKey(SIGN_PEM).export({ format: "jwk" }) as { n: string; e: string };
+const SIGN_KID = "server-test-kid";
+const SIGN_JWKS = {
+  keys: [{ kty: "RSA", n: SIGN_JWK.n, e: SIGN_JWK.e, kid: SIGN_KID, alg: "RS256", use: "sig" }],
+};
+const b64url = (x: string) => Buffer.from(x).toString("base64url");
+function signIdToken(payload: Record<string, unknown>): string {
+  const header = { alg: "RS256", kid: SIGN_KID, typ: "JWT" };
+  const input = `${b64url(JSON.stringify(header))}.${b64url(JSON.stringify(payload))}`;
+  return `${input}.${createSign("RSA-SHA256").update(input).sign(SIGN_PEM).toString("base64url")}`;
+}
+function atHashFor(accessToken: string): string {
+  return createHash("sha256")
+    .update(Buffer.from(accessToken, "utf8"))
+    .digest()
+    .subarray(0, 16)
+    .toString("base64url");
+}
+function routingFetch(tokenBody: string): typeof fetch {
+  return (async (url: string) => {
+    if (String(url).includes("/oauth/token")) return jsonResponse(200, tokenBody);
+    if (String(url).includes("/.well-known/jwks.json")) return jsonResponse(200, JSON.stringify(SIGN_JWKS));
+    throw new Error("unexpected fetch: " + url);
+  }) as typeof fetch;
 }
 
 describe("LogiAuthServer.authorizationUrl", () => {
@@ -82,5 +117,45 @@ describe("LogiAuthServer.exchangeCodeAndVerify error handling", () => {
     });
     const err = await server.exchangeCodeAndVerify({ code: "c", nonce: "n" }).catch((e) => e);
     expect(err).toBeInstanceOf(LogiAuthServerError);
+  });
+});
+
+describe("LogiAuthServer at_hash binding (wiring)", () => {
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    iss: base.issuer,
+    aud: base.clientId,
+    sub: "u_srv_1",
+    exp: now + 3600,
+    iat: now - 10,
+    nonce: "n_srv",
+    jti: "j_srv",
+  };
+
+  it("rejects (before returning a session) when at_hash does not bind the access_token", async () => {
+    const idToken = signIdToken({ ...payload, at_hash: atHashFor("the-real-access-token") });
+    const server = new LogiAuthServer({
+      ...base,
+      fetch: routingFetch(
+        JSON.stringify({ access_token: "a-SWAPPED-access-token", id_token: idToken, token_type: "Bearer" })
+      ),
+    });
+    await expect(
+      server.exchangeCodeAndVerify({ code: "c", nonce: "n_srv" })
+    ).rejects.toMatchObject({ code: "id_token_invalid" });
+  });
+
+  it("returns a verified session when at_hash binds the access_token", async () => {
+    const accessToken = "matching-access-token";
+    const idToken = signIdToken({ ...payload, at_hash: atHashFor(accessToken) });
+    const server = new LogiAuthServer({
+      ...base,
+      fetch: routingFetch(
+        JSON.stringify({ access_token: accessToken, id_token: idToken, token_type: "Bearer" })
+      ),
+    });
+    const session = await server.exchangeCodeAndVerify({ code: "c", nonce: "n_srv" });
+    expect(session.sub).toBe("u_srv_1");
+    expect(session.accessToken).toBe(accessToken);
   });
 });

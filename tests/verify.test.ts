@@ -8,6 +8,9 @@ import { verifyIdToken } from "../src/verify.js";
 interface GoldenCase {
   name: string;
   token: string;
+  // Present-only at_hash binding: threaded into verifyIdToken when set (cases
+  // without it skip at_hash, staying backward compatible).
+  accessToken?: string;
   expect: { valid: true; sub: string } | { valid: false; error: string };
 }
 interface GoldenVectors {
@@ -31,11 +34,12 @@ describe("id_token golden vectors (Node server)", () => {
 
   for (const c of vectors.cases) {
     it(c.name, async () => {
+      const caseOpts = { ...opts, accessToken: c.accessToken };
       if (c.expect.valid) {
-        const result = await verifyIdToken(c.token, opts);
+        const result = await verifyIdToken(c.token, caseOpts);
         expect(result.sub).toBe(c.expect.sub);
       } else {
-        await expect(verifyIdToken(c.token, opts)).rejects.toMatchObject({
+        await expect(verifyIdToken(c.token, caseOpts)).rejects.toMatchObject({
           code: c.expect.error,
         });
       }

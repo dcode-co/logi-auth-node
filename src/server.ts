@@ -205,7 +205,13 @@ export class LogiAuthServer {
       );
     }
 
-    const verified = await this.verifyWithRotationRetry(idToken, params.nonce);
+    // access_token is validated as a string just above; bind it via at_hash so
+    // a swapped access_token is rejected before this session is returned.
+    const verified = await this.verifyWithRotationRetry(
+      idToken,
+      params.nonce,
+      tokens.access_token
+    );
 
     const email = verified.claims["email"];
     const expiresIn = tokens.expires_in;
@@ -221,17 +227,17 @@ export class LogiAuthServer {
     };
   }
 
-  private async verifyWithRotationRetry(idToken: string, nonce: string) {
+  private async verifyWithRotationRetry(idToken: string, nonce: string, accessToken: string) {
     const expected = { issuer: this.tokenIssuer, clientId: this.clientId, nonce };
     const [jwks, fromCache] = await this.fetchJwks(false);
     try {
-      return await verifyIdToken(idToken, { jwks, expected });
+      return await verifyIdToken(idToken, { jwks, expected, accessToken });
     } catch (cause) {
       if (cause instanceof IdTokenError && cause.code === "unknown_kid" && fromCache) {
         // Key rotation within the cache TTL — bust + refetch once.
         const [fresh] = await this.fetchJwks(true);
         try {
-          return await verifyIdToken(idToken, { jwks: fresh, expected });
+          return await verifyIdToken(idToken, { jwks: fresh, expected, accessToken });
         } catch (retry) {
           throw asIdTokenInvalid(retry);
         }
