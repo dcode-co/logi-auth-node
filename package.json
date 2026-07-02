@@ -1,6 +1,6 @@
 {
   "name": "@logi-auth/server",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Server-side \"Sign in with logi\" for Node backends (Next.js, Express, Fastify) — confidential OAuth 2.0 code exchange + id_token (RS256) verification. Zero runtime dependencies.",
   "type": "module",
   "main": "./dist/index.js",
